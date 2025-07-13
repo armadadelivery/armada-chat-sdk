@@ -1,0 +1,63 @@
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  efhas_job:
+    runs-on: ubuntu-latest
+    name: A job to run efhas action
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # If the project is a backend project, uncomment the following lines
+      #- name: Set up Pythonnn
+      #  uses: actions/setup-python@v5
+      #  with:
+      #    python-version: '3.10'
+
+      # setup the environment for the action
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # install the dependencies
+      - name: Install dependencies
+        run: npm install
+
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Run efhas action
+        id: efhas
+        uses: armadadelivery/efhas-action@develop
+        with:
+          GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          # Configure these variables to match your project. For more, check https://github.com/armadadelivery/efhas-action/tree/develop
+          # START_COMAND
+          # TEST_ENDPOINT
+          # TEST_PORT
+          # DEAD_CODE_CONFIG
+        # Configure the environment variables to make the app run smoothly in workflow
+        #env:
+          #APP_ENV: production
+
+      - uses: Ahmed-Debbiche007/s3-sync-action@master
+        env:
+          AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.REGION }}   
+          AWS_S3_ENDPOINT: ${{ secrets.AWS_S3_ENDPOINT }}
+          FILE_TO_UPLOAD: ./${{steps.efhas.outputs.report_file_name}}
+          DEST_DIR: ${{github.repository}}
