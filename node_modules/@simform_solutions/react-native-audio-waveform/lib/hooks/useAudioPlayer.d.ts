@@ -1,0 +1,20 @@
+import { type IDidFinishPlayings, type IExtractWaveform, type IGetDuration, type IOnCurrentDurationChange, type IOnCurrentExtractedWaveForm, type IOnCurrentRecordingWaveForm, type IPausePlayer, type IPreparePlayer, type ISeekPlayer, type ISetPlaybackSpeed, type ISetVolume, type IStartPlayer, type IStopPlayer } from '../types';
+export declare const useAudioPlayer: () => {
+    extractWaveformData: (args: IExtractWaveform) => Promise<number[][]>;
+    pausePlayer: (args: IPausePlayer) => Promise<boolean>;
+    playPlayer: (args: IStartPlayer) => Promise<boolean>;
+    preparePlayer: (args: IPreparePlayer) => Promise<boolean>;
+    seekToPlayer: (args: ISeekPlayer) => Promise<boolean>;
+    setVolume: (args: ISetVolume) => Promise<boolean>;
+    stopAllPlayers: () => Promise<boolean>;
+    stopPlayer: (args: IStopPlayer) => Promise<boolean>;
+    onDidFinishPlayingAudio: (callback: (result: IDidFinishPlayings) => void) => import("react-native").EmitterSubscription;
+    onCurrentDuration: (callback: (result: IOnCurrentDurationChange) => void) => import("react-native").EmitterSubscription;
+    onCurrentExtractedWaveformData: (callback: (result: IOnCurrentExtractedWaveForm) => void) => import("react-native").EmitterSubscription;
+    getDuration: (args: IGetDuration) => Promise<number>;
+    onCurrentRecordingWaveformData: (callback: (result: IOnCurrentRecordingWaveForm) => void) => import("react-native").EmitterSubscription;
+    setPlaybackSpeed: (args: ISetPlaybackSpeed) => Promise<boolean>;
+    markPlayerAsUnmounted: () => void;
+    stopAllWaveFormExtractors: () => Promise<boolean>;
+    stopPlayersAndExtractors: () => Promise<[boolean, boolean]>;
+};
