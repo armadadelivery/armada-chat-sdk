@@ -36,6 +36,10 @@ interface ChatWrapperProps {
      * Order ID for the chat (optional)
      */
     orderId?: string;
+    /**
+     * Callback for when the back button is pressed (optional)
+     */
+    onBackPress?: () => void;
 }
 export declare const ChatWrapper: React.FC<ChatWrapperProps>;
 export {};

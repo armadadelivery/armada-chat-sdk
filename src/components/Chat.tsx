@@ -151,8 +151,8 @@ export const Chat: React.FC<ChatProps> = ({
   userId,
   userName = '',
   userAvatar = '',
-  otherUserName = 'Khaled Saeed',
-  otherUserAvatar = 'https://picsum.photos/200',
+  otherUserName,
+  otherUserAvatar,
   headerComponent,
   containerStyle,
   placeholder = 'Type a message',
@@ -171,6 +171,9 @@ export const Chat: React.FC<ChatProps> = ({
   };
   const [messages, setMessages] = useState<IMessage[]>([]);
   const [attachment, setAttachment] = useState<File | null>(null);
+  // State to store dynamically determined other user info
+  const [dynamicOtherUserName, setDynamicOtherUserName] = useState<string>('');
+  const [dynamicOtherUserAvatar, setDynamicOtherUserAvatar] = useState<string>('');
   const uploadAttachmentsMutation = useUploadAttachments();
   const pendingMessageRef = useRef<any>(null);
   const waveformRef = useRef<IWaveformRef>(null);
@@ -199,6 +202,19 @@ export const Chat: React.FC<ChatProps> = ({
   // Audio state
   const [isPlayingAudio, _setIsPlayingAudio] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+
+  // Effect to extract other user information from messages
+  useEffect(() => {
+    if (messages.length > 0 && !otherUserName && !otherUserAvatar) {
+      // Find the first message from a user that's not the current user
+      const otherUserMessage = messages.find(message => message.user._id !== userId);
+      
+      if (otherUserMessage) {
+        setDynamicOtherUserName(otherUserMessage.user.name || '');
+        setDynamicOtherUserAvatar(otherUserMessage.user.avatar || '');
+      }
+    }
+  }, [messages, userId, otherUserName, otherUserAvatar]);
 
   // Effect to update isPlayingAudio state based on audioState
 
@@ -527,19 +543,23 @@ export const Chat: React.FC<ChatProps> = ({
       return headerComponent;
     }
 
+    // Use provided props or fall back to dynamic values extracted from messages
+    const displayOtherUserName = otherUserName || dynamicOtherUserName;
+    const displayOtherUserAvatar = otherUserAvatar || dynamicOtherUserAvatar;
+
     return (
       <View style={styles.headerContainer}>
-        <TouchableOpacity style={styles.backButton} onPress={onBackPress}>
+        {/* <TouchableOpacity style={styles.backButton} onPress={onBackPress}>
           <Image source={require('../img/chevron-left.png')} />
-        </TouchableOpacity>
+        </TouchableOpacity> */}
 
-        {otherUserAvatar && (
+        {displayOtherUserAvatar && (
           <View style={styles.headerProfile}>
             <Image
-              source={{uri: otherUserAvatar}}
+              source={{uri: displayOtherUserAvatar}}
               style={styles.headerAvatar}
             />
-            <Text style={styles.headerName}>{otherUserName}</Text>
+            <Text style={styles.headerName}>{displayOtherUserName}</Text>
           </View>
         )}
 

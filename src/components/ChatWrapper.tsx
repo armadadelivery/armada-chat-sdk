@@ -1,6 +1,7 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect, useRef} from 'react';
 import { firebase } from '@react-native-firebase/database';
 import {
+  Animated,
   Image,
   Modal,
   SafeAreaView,
@@ -51,6 +52,12 @@ interface ChatWrapperProps {
    * Order ID for the chat (optional)
    */
   orderId?: string;
+
+  /**
+   * Callback for when the back button is pressed (optional)
+   */
+  onBackPress?: () => void;
+  
 }
 
 export const ChatWrapper: React.FC<ChatWrapperProps> = ({
@@ -58,21 +65,135 @@ export const ChatWrapper: React.FC<ChatWrapperProps> = ({
   userId,
   userName = '',
   userAvatar = '',
-  otherUserName = 'Khaled Saeed',
-  otherUserAvatar = 'https://picsum.photos/200',
+  otherUserName,
+  otherUserAvatar,
   buttonStyle,
   chatIconStyle,
   orderId,
+  onBackPress
 }) => {
-  
-
   const [isFullScreen, setIsFullScreen] = useState(false);
+  // State to store dynamically determined other user info
+  const [dynamicOtherUserName, setDynamicOtherUserName] = useState<string>('');
+  // State to track unread messages count
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  // Animation value for badge pulsing effect
+  const badgeAnimation = useRef(new Animated.Value(1)).current;
+
+  // Initialize databaseRef inside the component
+  const databaseRef = (path: string) => {
+    return firebase
+      .app()
+      .database('https://armadanow-2b250-default-rtdb.firebaseio.com')
+      .ref(path);
+  };
+
+  // Effect to listen for unread messages count
+  useEffect(() => {
+    const countUnreadMessages = () => {
+      const onValueChange = databaseRef(`/chats/${chatId}`)
+        .on('value', (snapshot: any) => {
+          const messagesData = snapshot.val();
+          if (messagesData) {
+            let unreadMessagesCount = 0;
+            
+            // Count messages from other users that are not read
+            Object.values(messagesData).forEach((message: any) => {
+              if (message.user._id !== userId && message.read === false) {
+                unreadMessagesCount++;
+              }
+            });
+            
+            setUnreadCount(unreadMessagesCount);
+          } else {
+            setUnreadCount(0);
+          }
+        });
+
+      // Return cleanup function
+      return () => databaseRef(`/chats/${chatId}`).off('value', onValueChange);
+    };
+
+    // Only listen for unread messages when chat is not open
+    if (!isFullScreen) {
+      const cleanup = countUnreadMessages();
+      return cleanup;
+    } else {
+      // Reset unread count when chat is opened
+      setUnreadCount(0);
+    }
+  }, [chatId, userId, isFullScreen]);
+
+  // Effect to animate badge when unread count changes
+  useEffect(() => {
+    if (unreadCount > 0) {
+      // Start pulsing animation
+      const pulseAnimation = Animated.loop(
+        Animated.sequence([
+          Animated.timing(badgeAnimation, {
+            toValue: 1.3,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(badgeAnimation, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      pulseAnimation.start();
+
+      // Cleanup function to stop animation
+      return () => {
+        pulseAnimation.stop();
+        badgeAnimation.setValue(1);
+      };
+    } else {
+      // Reset animation when no unread messages
+      badgeAnimation.setValue(1);
+    }
+  }, [unreadCount, badgeAnimation]);
+
+  // Effect to extract other user information from messages when modal opens
+  useEffect(() => {
+    if (isFullScreen && !otherUserName) {
+      const loadOtherUserInfo = async () => {
+        try {
+          // Get messages to extract other user info
+          const snapshot = await databaseRef(`/chats/${chatId}`)
+            .orderByChild('createdAt')
+            .limitToLast(10) // Only get recent messages for efficiency
+            .once('value');
+          const messagesData = snapshot.val();
+
+          if (messagesData) {
+            // Find the first message from a user that's not the current user
+            const otherUserMessage = Object.values(messagesData).find(
+              (message: any) => message.user._id !== userId
+            );
+
+            if (otherUserMessage) {
+              setDynamicOtherUserName((otherUserMessage as any).user.name || '');
+            }
+          }
+        } catch (error) {
+          // Silently handle error - not critical for functionality
+        }
+      };
+
+      loadOtherUserInfo();
+    }
+  }, [isFullScreen, chatId, userId, otherUserName]);
 
   const openChat = () => {
     setIsFullScreen(true);
   };
 
   const closeChat = () => {
+    if(onBackPress){
+    onBackPress();
+    }
     setIsFullScreen(false);
   };
 
@@ -83,13 +204,28 @@ export const ChatWrapper: React.FC<ChatWrapperProps> = ({
         style={[styles.chatButton, buttonStyle]}
         onPress={openChat}>
         <Image source={chatIcon} style={[styles.chatButtonIcon, chatIconStyle]} />
+        {/* Unread messages badge */}
+        {unreadCount > 0 && (
+          <Animated.View 
+            style={[
+              styles.unreadBadge,
+              {
+                transform: [{ scale: badgeAnimation }]
+              }
+            ]}
+          >
+            <Text style={styles.unreadBadgeText}>
+              {unreadCount.toString()}
+            </Text>
+          </Animated.View>
+        )}
       </TouchableOpacity>
 
       {/* Full-screen modal for chat */}
       <Modal
         visible={isFullScreen}
         animationType="slide"
-        onRequestClose={closeChat}>
+        >
         <SafeAreaView style={styles.modalContainer}>
           <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
@@ -102,7 +238,7 @@ export const ChatWrapper: React.FC<ChatWrapperProps> = ({
               />
               <Text style={styles.backText}>Back</Text>
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>{otherUserName}</Text>
+            <Text style={styles.headerTitle}>{otherUserName || dynamicOtherUserName}</Text>
             <View style={styles.headerRight} />
           </View>
 
@@ -178,5 +314,24 @@ const styles = StyleSheet.create({
   },
   chatContainer: {
     flex: 1,
+  },
+  unreadBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: '#E2574C',
+    borderRadius: 12,
+    minWidth: 21,
+    height: 21,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  unreadBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 });
